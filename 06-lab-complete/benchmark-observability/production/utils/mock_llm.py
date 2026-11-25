@@ -210,3 +210,9 @@ async def generate(question: str, context: list[str] | None = None,
         latency_s=latency_ms / 1000,
         cost_usd=calculate_cost(model, input_tokens, output_tokens),
     )
+
+
+async def health_check() -> bool:
+    """Readiness probe health check for upstream LLM service."""
+    # Fast non-failing probe to check engine availability
+    return True

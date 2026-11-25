@@ -24,7 +24,7 @@ python app.py
 ```
 
 ### Những vấn đề trong code này:
-1. API key hardcode trong code
+1. Config không đến từ environment
 2. Không có health check endpoint
 3. Debug mode bật cứng
 4. Không xử lý SIGTERM gracefully

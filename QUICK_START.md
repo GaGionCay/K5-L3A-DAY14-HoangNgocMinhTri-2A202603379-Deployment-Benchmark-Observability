@@ -15,16 +15,27 @@ Deploy your first AI agent to the cloud in under 30 minutes.
 Run these commands to verify you're ready:
 
 ```bash
-# Check Python
+# Check Python (3.11+ recommended)
 python --version
-# Should be 3.11 or higher
 
-# Check Docker
+# Check Docker & Docker Compose
 docker --version
-docker compose version
+docker compose version   # Or `docker-compose version` on legacy engines
 
 # Check Git
 git --version
+```
+
+### Virtual Environment Setup (Recommended)
+```bash
+python -m venv .venv
+# On Linux/macOS:
+source .venv/bin/activate
+# On Windows PowerShell:
+.venv\Scripts\Activate.ps1
+
+# Install lab requirements
+pip install -r 06-lab-complete/requirements.txt
 ```
 
 If any command fails, install the missing tool first.

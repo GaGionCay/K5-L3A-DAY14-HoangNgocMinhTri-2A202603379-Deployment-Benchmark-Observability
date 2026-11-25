@@ -15,6 +15,15 @@ class Settings:
     llm_model: str = os.getenv("LLM_MODEL", "mock-llm-small")       # mock-llm-small | mock-llm-large
     agent_api_key: str = os.getenv("AGENT_API_KEY", "")              # rỗng = tắt auth (chỉ dùng local)
 
+    # Security & CORS
+    allowed_origins: list = field(
+        default_factory=lambda: [
+            o.strip()
+            for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+            if o.strip() and o.strip() != "*"
+        ]
+    )
+
     # Tracing — OTel SDK tự đọc OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME...
     tracing_enabled: bool = os.getenv("TRACING_ENABLED", "true").lower() == "true"
     otlp_endpoint: str = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")

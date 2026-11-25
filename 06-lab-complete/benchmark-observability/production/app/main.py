@@ -10,6 +10,8 @@ Chạy cả stack: docker compose up --build   (xem README.md)
 """
 import json
 import logging
+import os
+import socket
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -17,6 +19,7 @@ from datetime import datetime, timezone
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, Security
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
 from opentelemetry.trace import Status, StatusCode
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -62,6 +65,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -207,13 +217,40 @@ def health():
 
 
 @app.get("/ready")
-def ready():
-    return {"ready": True}
+async def ready():
+    # Verify upstream dependencies: Jaeger / OTLP exporter if tracing enabled, and mock_llm engine
+    if settings.tracing_enabled and settings.otlp_endpoint:
+        import urllib.parse
+        import urllib.request
+        try:
+            parsed = urllib.parse.urlparse(settings.otlp_endpoint)
+            # Check host reachability
+            with socket.create_connection((parsed.hostname or "localhost", parsed.port or 4318), timeout=1.0):
+                pass
+        except Exception:
+            raise HTTPException(status_code=503, detail="Tracing collector is unavailable")
+
+    try:
+        if not await mock_llm.health_check():
+            raise HTTPException(status_code=503, detail="LLM upstream engine is unhealthy")
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Upstream dependency check failed: {exc}") from exc
+
+    return {"ready": True, "instance": settings.instance_id}
 
 
 @app.get("/metrics", include_in_schema=False)
-def metrics():
-    """Prometheus scrape endpoint. Nginx chặn đường này từ bên ngoài (xem nginx.conf)."""
+def metrics(request: Request):
+    """Prometheus scrape endpoint. Nginx chặn đường này từ bên ngoài (xem nginx.conf).
+    Also supports internal metrics secret/token protection if METRICS_TOKEN is configured.
+    """
+    metrics_token = os.getenv("METRICS_TOKEN", "")
+    if metrics_token:
+        auth_header = request.headers.get("Authorization", "")
+        token = auth_header.replace("Bearer ", "").strip()
+        if token != metrics_token:
+            raise HTTPException(status_code=403, detail="Access to metrics is restricted")
+
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 

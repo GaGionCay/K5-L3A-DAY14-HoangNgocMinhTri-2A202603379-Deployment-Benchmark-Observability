@@ -47,16 +47,20 @@ def percentile(sorted_values: list[float], p: float) -> float:
 
 
 async def worker(client: httpx.AsyncClient, url: str, headers: dict, results: list,
-                 stop_at: float | None, counter: dict, total: int | None):
+                 stop_at: float | None, counter: dict, total: int | None, rng: random.Random):
     while True:
         if stop_at is not None and time.perf_counter() >= stop_at:
             return
         if total is not None:
             if counter["sent"] >= total:
                 return
+            idx = counter["sent"]
             counter["sent"] += 1
+        else:
+            idx = len(results)
 
-        payload = {"question": random.choice(QUESTIONS)}
+        # Deterministic question selection when total is fixed
+        payload = {"question": QUESTIONS[idx % len(QUESTIONS)] if total is not None else rng.choice(QUESTIONS)}
         start = time.perf_counter()
         try:
             resp = await client.post(f"{url}/ask", json=payload, headers=headers)
@@ -69,6 +73,10 @@ async def worker(client: httpx.AsyncClient, url: str, headers: dict, results: li
 
 
 async def run(args) -> dict:
+    if args.seed is not None:
+        random.seed(args.seed)
+    rng = random.Random(args.seed if args.seed is not None else 42)
+
     headers = {"X-API-Key": args.api_key} if args.api_key else {}
     results: list[dict] = []
     counter = {"sent": 0}
@@ -85,7 +93,7 @@ async def run(args) -> dict:
 
         started = time.perf_counter()
         await asyncio.gather(*[
-            worker(client, args.url, headers, results, stop_at, counter, total)
+            worker(client, args.url, headers, results, stop_at, counter, total, rng)
             for _ in range(args.concurrency)
         ])
         elapsed = time.perf_counter() - started
@@ -96,6 +104,7 @@ async def run(args) -> dict:
 
     return {
         "target": args.url,
+        "seed": args.seed,
         "concurrency": args.concurrency,
         "total_requests": len(results),
         "duration_s": round(elapsed, 2),
@@ -149,6 +158,7 @@ def main():
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--slo-p95-ms", type=float, default=500)
     parser.add_argument("--slo-error-rate", type=float, default=0.02)
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--out", help="Lưu report JSON vào file")
     args = parser.parse_args()
 

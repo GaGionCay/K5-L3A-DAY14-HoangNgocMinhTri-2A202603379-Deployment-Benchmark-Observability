@@ -54,9 +54,12 @@ pip install -r requirements.txt
 python app.py
 
 # Lấy JWT token
+#
+# Cấu hình JWT_SECRET và AUTH_USERS trong environment/secret manager trước khi chạy.
+# AUTH_USERS là JSON map username thành object password/role, không đặt credential trong source.
 curl -X POST http://localhost:8000/auth/token \
      -H "Content-Type: application/json" \
-     -d '{"username": "student", "password": "demo123"}'
+     -d '{"username": "<configured-user>", "password": "<configured-password>"}'
 
 # Dùng token
 curl -H "Authorization: Bearer <token>" \
@@ -68,7 +71,7 @@ curl -H "Authorization: Bearer <token>" \
 # Lấy token rồi gửi 20 requests — request 11+ sẽ bị chặn (429)
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/token \
      -H "Content-Type: application/json" \
-     -d '{"username": "student", "password": "demo123"}' \
+     -d '{"username": "<configured-user>", "password": "<configured-password>"}' \
      | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
 for i in $(seq 1 20); do

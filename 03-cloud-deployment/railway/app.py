@@ -14,9 +14,12 @@ from utils.mock_llm import ask
 app = FastAPI(title="Agent on Railway", version="1.0.0")
 START_TIME = time.time()
 
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+allowed_origins = [o.strip() for o in _raw_origins if o.strip() and o.strip() != "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins or ["http://localhost:3000"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

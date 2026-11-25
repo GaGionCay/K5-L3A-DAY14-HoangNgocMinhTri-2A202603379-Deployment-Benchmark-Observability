@@ -1,9 +1,12 @@
 """
-Mock LLM — dùng chung cho tất cả ví dụ.
-Không cần API key thật. Trả lời giả lập để focus vào deployment concept.
+Shared canonical Mock LLM implementation for educational examples.
+Modules re-export from this file or import directly from `utils.mock_llm`.
 """
-import time
+import asyncio
+import os
 import random
+import time
+from typing import Generator
 
 
 MOCK_RESPONSES = {
@@ -20,9 +23,11 @@ MOCK_RESPONSES = {
 
 def ask(question: str, delay: float = 0.1) -> str:
     """
-    Mock LLM call với delay giả lập latency thật.
+    Mock LLM call with simulated network latency.
+    Supports MOCK_LLM_DELAY_SECONDS env override.
     """
-    time.sleep(delay + random.uniform(0, 0.05))  # simulate API latency
+    configured_delay = float(os.getenv("MOCK_LLM_DELAY_SECONDS", delay))
+    time.sleep(configured_delay + random.uniform(0, 0.05))
 
     question_lower = question.lower()
     for keyword, responses in MOCK_RESPONSES.items():
@@ -32,9 +37,9 @@ def ask(question: str, delay: float = 0.1) -> str:
     return random.choice(MOCK_RESPONSES["default"])
 
 
-def ask_stream(question: str):
+def ask_stream(question: str) -> Generator[str, None, None]:
     """
-    Mock streaming response — yield từng token.
+    Mock streaming response — yields token chunks.
     """
     response = ask(question)
     words = response.split()

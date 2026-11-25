@@ -1,7 +1,7 @@
 # Part 6 — Final Project: Production-ready AI Agent
 
-Bạn tự xây một AI agent đủ chuẩn production từ **bản khung** trong thư mục này, kết hợp mọi thứ đã học ở Part 1–5.
-Mọi file đều đã có sẵn, phần việc của bạn nằm ở các chỗ ghi `TODO`. Bản khung chạy được nhưng **chưa đạt tiêu chí nào**.
+Bạn tự xây một AI agent đủ chuẩn production trong thư mục này, kết hợp mọi thứ đã học ở Part 1–5.
+Thư mục hiện chứa implementation hoàn chỉnh cho cả 12 tiêu chí bên dưới. Chạy checker để xác nhận trên môi trường local.
 
 Bài chỉ được tính hoàn thành khi script chấm báo **`PASS 12/12`**:
 
@@ -14,18 +14,18 @@ python check_production_ready.py
 
 ## Checklist Deliverable
 
-- [ ] Dockerfile (multi-stage, < 500 MB)
-- [ ] docker-compose.yml (agent + redis)
-- [ ] .dockerignore
-- [ ] Health check endpoint (`GET /health`)
-- [ ] Readiness endpoint (`GET /ready`)
-- [ ] API Key authentication
-- [ ] Rate limiting
-- [ ] Cost guard
-- [ ] Config từ environment variables
-- [ ] Structured logging
-- [ ] Graceful shutdown
-- [ ] Public URL ready (Railway / Render config)
+- [x] Dockerfile (multi-stage, < 500 MB)
+- [x] docker-compose.yml (agent + redis)
+- [x] .dockerignore
+- [x] Health check endpoint (`GET /health`)
+- [x] Readiness endpoint (`GET /ready`)
+- [x] API Key authentication
+- [x] Rate limiting
+- [x] Cost guard
+- [x] Config từ environment variables
+- [x] Structured logging
+- [x] Graceful shutdown
+- [x] Public URL ready (Railway / Render config)
 
 ---
 
@@ -52,30 +52,30 @@ Script tự khởi động agent của bạn, gọi API thật, build và chạy
 
 ---
 
-## Bản khung
+## Cấu trúc triển khai
 
 ```
 06-lab-complete/
 ├── app/
-│   ├── main.py           # TODO: /health, /ready, nối auth + rate limit + cost guard vào /ask, log JSON, shutdown
-│   ├── config.py         # TODO: đọc cấu hình từ biến môi trường
-│   ├── auth.py           # TODO: verify_api_key → 401
-│   ├── rate_limiter.py   # TODO: check_rate_limit → 429 (Redis)
-│   ├── cost_guard.py     # TODO: check_budget → 402, record_cost (Redis)
-│   └── redis_client.py   # TODO: kết nối Redis + redis_healthy() cho /ready
+│   ├── main.py           # Health/readiness endpoints, security checks, logging, graceful shutdown
+│   ├── config.py         # Environment-based configuration
+│   ├── auth.py           # API key authentication
+│   ├── rate_limiter.py   # Redis sliding-window rate limiting
+│   ├── cost_guard.py     # Redis-backed budget tracking
+│   └── redis_client.py   # Shared Redis client and readiness probe
 ├── utils/mock_llm.py     # Mock LLM — có sẵn, không cần sửa
-├── Dockerfile            # TODO: viết lại thành multi-stage production
-├── docker-compose.yml    # TODO: thêm redis
-├── .dockerignore         # TODO
-├── .env.example          # TODO: liệt kê đủ biến
-├── railway.toml          # TODO (hoặc render.yaml)
-├── render.yaml           # TODO (hoặc railway.toml)
+├── Dockerfile            # Multi-stage non-root production image
+├── docker-compose.yml    # Agent + Redis
+├── .dockerignore         # Excludes local secrets and build artifacts
+├── .env.example          # Configuration template
+├── railway.toml          # Railway Docker deployment
+├── render.yaml           # Optional alternative to Railway
 ├── requirements.txt      # Có sẵn
 ├── check_production_ready.py   # Script chấm — không sửa
 └── benchmark-observability/    # Part 7 — làm sau khi xong Part 6
 ```
 
-**Gợi ý thứ tự làm:** `/health` → `config.py` → log JSON → `auth.py` → `redis_client.py` + `/ready` → `rate_limiter.py` → `cost_guard.py` → graceful shutdown → `Dockerfile` + `.dockerignore` → `docker-compose.yml` → `railway.toml` / `render.yaml`. Hướng dẫn từng bước: [CODE_LAB.md — Part 6](../CODE_LAB.md#part-6-final-project-60-phút).
+Để tìm hiểu bài theo từng bước, xem hướng dẫn tại [CODE_LAB.md — Part 6](../CODE_LAB.md#part-6-final-project-60-phút).
 
 ---
 
@@ -85,7 +85,9 @@ Script tự khởi động agent của bạn, gọi API thật, build và chạy
 pip install -r requirements.txt
 cp .env.example .env
 
-# Chạy nhanh không cần Docker (cần Redis riêng nếu muốn test rate limit thật)
+# Điền AGENT_API_KEY trong .env trước khi chạy Docker Compose.
+# Đặt AGENT_API_KEY thành giá trị riêng trước khi chạy.
+# Chạy nhanh không cần Docker (cần Redis riêng để dùng /ready, rate limit và cost guard)
 AGENT_API_KEY=dev-key uvicorn app.main:app --reload
 
 # Chạy cả agent + redis

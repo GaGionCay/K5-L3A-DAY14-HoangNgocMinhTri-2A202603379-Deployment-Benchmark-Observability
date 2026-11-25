@@ -70,6 +70,10 @@ def ask(client: httpx.Client, url: str, question: str, headers: dict, retries: i
 
 
 def run_eval(args) -> dict:
+    if getattr(args, "seed", None) is not None:
+        import random
+        random.seed(args.seed)
+
     dataset = load_dataset(Path(args.dataset))
     headers = {"X-API-Key": args.api_key} if args.api_key else {}
     results = []
@@ -110,6 +114,7 @@ def run_eval(args) -> dict:
 
     return {
         "target": args.url,
+        "seed": getattr(args, "seed", None),
         "agent_version": ", ".join(sorted(versions)) or "unknown",
         "dataset": str(args.dataset),
         "total": len(results),
@@ -172,6 +177,7 @@ def main():
     parser.add_argument("--retries", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--baseline", help="Report JSON của phiên bản trước để so sánh")
+    parser.add_argument("--seed", type=int, default=42, help="Seed for reproducibility")
     parser.add_argument("--out", help="Lưu report JSON vào file")
     args = parser.parse_args()
 

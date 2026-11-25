@@ -9,27 +9,26 @@ Flow:
     GET  /ask         → gửi JWT trong header Authorization: Bearer <token>
     Server verify signature → extract user info → process request
 """
+import hmac
+import json
 import os
-import jwt
-import time
 from datetime import datetime, timedelta, timezone
+
+import jwt
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-# ─────────────────────────────────────────────
-# Config
-# ─────────────────────────────────────────────
-SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-change-in-production-please")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-# Demo users (trong thực tế lưu trong database)
-DEMO_USERS = {
-    "student": {"password": "demo123", "role": "user", "daily_limit": 50},
-    "teacher": {"password": "teach456", "role": "admin", "daily_limit": 1000},
-}
-
 security = HTTPBearer(auto_error=False)
+
+
+def _jwt_secret() -> str:
+    secret = os.getenv("JWT_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="JWT authentication is not configured")
+    return secret
 
 
 def create_token(username: str, role: str) -> str:
@@ -40,7 +39,7 @@ def create_token(username: str, role: str) -> str:
         "iat": datetime.now(timezone.utc),  # issued at
         "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, _jwt_secret(), algorithm=ALGORITHM)
 
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> dict:
@@ -56,20 +55,48 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         )
 
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(credentials.credentials, _jwt_secret(), algorithms=[ALGORITHM])
+        if not isinstance(payload, dict):
+            raise jwt.InvalidTokenError("Token payload must be an object")
+        username = payload.get("sub")
+        role = payload.get("role")
+        if not isinstance(username, str) or not isinstance(role, str):
+            raise jwt.InvalidTokenError("Required claims are missing")
         return {
-            "username": payload["sub"],
-            "role": payload["role"],
+            "username": username,
+            "role": role,
         }
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired. Please login again.")
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=403, detail="Invalid token.")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def authenticate_user(username: str, password: str) -> dict:
-    """Kiểm tra username/password, trả về user info nếu hợp lệ."""
-    user = DEMO_USERS.get(username)
-    if not user or user["password"] != password:
+    """Authenticate against the externally configured AUTH_USERS JSON object."""
+    configured_users = os.getenv("AUTH_USERS", "")
+    if not configured_users:
+        raise HTTPException(status_code=503, detail="User authentication is not configured")
+    try:
+        users = json.loads(configured_users)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=503, detail="AUTH_USERS configuration is invalid") from exc
+    if not isinstance(users, dict):
+        raise HTTPException(status_code=503, detail="AUTH_USERS configuration is invalid")
+
+    user = users.get(username)
+    configured_password = user.get("password") if isinstance(user, dict) else None
+    if not isinstance(configured_password, str) or not hmac.compare_digest(configured_password, password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    return {"username": username, "role": user["role"]}
+    role = user.get("role")
+    if not isinstance(role, str) or not role:
+        raise HTTPException(status_code=503, detail="AUTH_USERS configuration is invalid")
+    return {"username": username, "role": role}

@@ -1,0 +1,71 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, hmt ]
+  pull_request:
+    branches: [ main, hmt ]
+
+jobs:
+  test-and-lint:
+    name: Lint, Test & Validate Production Readiness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r 06-lab-complete/requirements.txt
+          pip install -r 04-api-gateway/production/requirements.txt
+          pip install httpx pyyaml pytest
+
+      - name: Start Redis service
+        uses: supercharge/redis-github-action@1.8.0
+        with:
+          redis-version: 7-alpine
+
+      - name: Run production readiness static check
+        run: |
+          cd 06-lab-complete
+          python check_production_ready.py --static-only
+
+      - name: Run unit test suite
+        run: |
+          python tests/test_units.py
+
+      - name: Run integration test suite
+        run: |
+          python tests/test_integration.py
+
+      - name: Run production readiness runtime checks
+        run: |
+          cd 06-lab-complete
+          python check_production_ready.py --skip-docker --redis-url redis://127.0.0.1:6379/0
+
+      - name: Validate Prometheus Alert Rules with Promtool
+        run: |
+          cd 06-lab-complete/benchmark-observability/production/prometheus
+          docker run --rm -v "$PWD:/p" --entrypoint promtool prom/prometheus:v3.16.0 check rules /p/alert_rules.yml
+          docker run --rm -v "$PWD:/p" --entrypoint promtool prom/prometheus:v3.16.0 test rules /p/alert_rules_test.yml
+
+      - name: Validate Docker Compose Configurations
+        run: |
+          docker compose -f 06-lab-complete/docker-compose.yml config
+          docker compose -f 06-lab-complete/benchmark-observability/production/docker-compose.yml config
+
+      - name: Build Lab Complete Docker Image
+        run: |
+          docker build -t lab-complete:latest 06-lab-complete/
+
+      - name: Verify Automated Eval Quality Gate (Self-test)
+        run: |
+          cd 06-lab-complete/benchmark-observability/develop
+          python -c "from eval.run_eval import load_dataset; data = load_dataset('eval/golden_dataset.jsonl'); assert len(data) > 0, 'Golden dataset should not be empty'"

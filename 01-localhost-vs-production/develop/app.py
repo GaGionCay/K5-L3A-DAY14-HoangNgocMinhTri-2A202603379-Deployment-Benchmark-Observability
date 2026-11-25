@@ -1,21 +1,24 @@
 """
-❌ BASIC — Agent "Kiểu Localhost" (Anti-patterns)
+⚠️ EDUCATIONAL ANTI-PATTERN EXAMPLE: Localhost-only Agent
 
-Đây là cách KHÔNG NÊN làm. Dùng để so sánh với advanced/.
-Hãy đếm bao nhiêu vấn đề bạn tìm được trong file này.
+DO NOT USE IN PRODUCTION.
+This file demonstrates common development anti-patterns for educational contrast:
+- Hardcoded configuration without environment variable management
+- Missing health and readiness checks (/health, /ready)
+- Binding to localhost rather than 0.0.0.0
+- Hardcoded port binding ignoring platform PORT environment variables
+- Debug reload active in server runner
+
+See 01-localhost-vs-production/production/app.py for the 12-factor production implementation.
 """
-import os
+import logging
 
 from fastapi import FastAPI
 import uvicorn
 from utils.mock_llm import ask
 
 app = FastAPI(title="My Agent")
-
-# ❌ Vấn đề 1: API key hardcode trong code
-# Nếu push lên GitHub → key bị lộ ngay lập tức
-OPENAI_API_KEY = "sk-hardcoded-fake-key-never-do-this"
-DATABASE_URL = "postgresql://admin:password123@localhost:5432/mydb"
+logger = logging.getLogger(__name__)
 
 # ❌ Vấn đề 2: Không có config management
 DEBUG = True
@@ -29,13 +32,9 @@ def home():
 # curl -X POST "http://localhost:8000/ask?question=Hello"
 @app.post("/ask")
 def ask_agent(question: str):
-    # ❌ Vấn đề 3: Print thay vì proper logging
-    print(f"[DEBUG] Got question: {question}")
-    print(f"[DEBUG] Using key: {OPENAI_API_KEY}")  # ❌ log ra secret!
-
+    # Log only non-sensitive request metadata; never log question contents or credentials.
     response = ask(question)
-
-    print(f"[DEBUG] Response: {response}")
+    logger.info("Request completed", extra={"question_length": len(question)})
     return {"answer": response}
 
 
@@ -45,7 +44,6 @@ def ask_agent(question: str):
 # ❌ Vấn đề 5: Port cố định — không đọc từ environment
 # Trên Railway/Render, PORT được inject qua env var
 if __name__ == "__main__":
-    print("Starting agent on localhost:8000...")
     uvicorn.run(
         "app:app",
         host="localhost",   # ❌ chỉ chạy được trên local

@@ -1,23 +1,15 @@
 """
-BASIC — API Key Authentication
+⚠️ EDUCATIONAL MVP EXAMPLE: Basic In-Memory API Key Authentication
 
-Lớp bảo vệ đơn giản nhất: kiểm tra header X-API-Key.
-Phù hợp cho: internal API, B2B, MVP.
+DO NOT USE IN PRODUCTION AS-IS.
+This example demonstrates a basic API key check for local learning.
+Limitations vs Production:
+- Hardcoded fallback key if env var missing
+- Missing rate limiting and cost protection
+- Plain error responses and single worker runner
 
-Chạy:
-    AGENT_API_KEY=my-secret-key python app.py
-
-Test:
-    # Có key → 200
-    curl -H "X-API-Key: my-secret-key" -X POST \\
-         -H "Content-Type: application/json" \\
-         -d '{"question":"hello"}' \\
-         http://localhost:8000/ask
-
-    # Không có key → 401
-    curl -X POST -H "Content-Type: application/json" \\
-         -d '{"question":"hello"}' \\
-         http://localhost:8000/ask
+For production security (JWT, Redis rate limiting, Redis cost protection, security headers):
+See 04-api-gateway/production/app.py.
 """
 import os
 

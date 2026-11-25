@@ -6,6 +6,22 @@
 
 ## 🐳 Docker Issues
 
+### Issue: "docker compose: unknown command" or `docker-compose` alias
+
+**Symptoms:**
+```
+docker: unknown command: docker compose
+```
+
+**Solutions:**
+1. On environments where Docker Compose v1/standalone CLI is installed, invoke `docker-compose` instead:
+   ```bash
+   docker-compose -f docker-compose.yml up -d
+   ```
+2. Update Docker Desktop or install the Compose plugin (`docker-compose-plugin`) to support standard `docker compose`.
+
+---
+
 ### Issue: "Cannot connect to Docker daemon"
 
 **Symptoms:**

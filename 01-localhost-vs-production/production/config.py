@@ -31,7 +31,10 @@ class Settings:
     # Security
     api_key: str = field(default_factory=lambda: os.getenv("AGENT_API_KEY", ""))
     allowed_origins: list = field(
-        default_factory=lambda: os.getenv("ALLOWED_ORIGINS", "*").split(",")
+        default_factory=lambda: [
+            o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+            if o.strip() and o.strip() != "*"
+        ]
     )
 
     def validate(self):

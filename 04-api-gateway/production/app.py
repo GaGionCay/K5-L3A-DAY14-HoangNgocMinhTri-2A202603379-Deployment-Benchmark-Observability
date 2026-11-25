@@ -15,7 +15,7 @@ Chạy:
 Lấy token:
     curl -X POST http://localhost:8000/auth/token \\
          -H "Content-Type: application/json" \\
-         -d '{"username": "student", "password": "demo123"}'
+         -d '{"username": "<configured-user>", "password": "<configured-password>"}'
 
 Dùng token:
     curl -H "Authorization: Bearer <token>" \\
@@ -40,7 +40,20 @@ from rate_limiter import rate_limiter_user, rate_limiter_admin
 from cost_guard import cost_guard
 from utils.mock_llm import ask
 
-logging.basicConfig(level=logging.INFO)
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "structured_data"):
+            payload.update(record.structured_data)
+        return json.dumps(payload)
+
+_log_handler = logging.StreamHandler()
+_log_handler.setFormatter(JsonFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_log_handler], force=True)
 logger = logging.getLogger(__name__)
 
 START_TIME = time.time()
@@ -64,9 +77,12 @@ app = FastAPI(
 # ──────────────────────────────────────────────────────────
 # Security Middleware
 # ──────────────────────────────────────────────────────────
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+allowed_origins = [o.strip() for o in _raw_origins if o.strip() and o.strip() != "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=allowed_origins or ["http://localhost:3000"],
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
@@ -114,7 +130,6 @@ def login(body: LoginRequest):
         "access_token": token,
         "token_type": "bearer",
         "expires_in_minutes": 60,
-        "hint": f"Include in header: Authorization: Bearer {token[:20]}...",
     }
 
 
@@ -174,8 +189,8 @@ def admin_stats(user: dict = Depends(verify_token)):
     if user["role"] != "admin":
         raise HTTPException(403, "Admin only")
     return {
-        "total_users": "N/A (in-memory demo)",
-        "global_cost_usd": cost_guard._global_cost,
+        "storage": "redis",
+        "global_cost_usd": cost_guard.get_global_cost(),
         "global_budget_usd": cost_guard.global_daily_budget_usd,
     }
 
@@ -189,15 +204,23 @@ def health():
     return {
         "status": "ok",
         "uptime_seconds": round(time.time() - START_TIME, 1),
-        "security": "JWT + RateLimit + CostGuard",
+        "security": "JWT + Redis RateLimit + Redis CostGuard",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
+@app.get("/ready")
+def ready():
+    from rate_limiter import _redis
+    try:
+        if not _redis.ping():
+            raise HTTPException(503, "Redis ping returned False")
+    except Exception as exc:
+        raise HTTPException(503, f"Redis is unavailable: {exc}") from exc
+    return {"ready": True}
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
-    print("\n=== Demo credentials ===")
-    print("  student / demo123  (10 req/min, $1/day budget)")
-    print("  teacher / teach456 (100 req/min, $1/day budget)")
-    print(f"\nDocs: http://localhost:{port}/docs\n")
+    print(f"Docs: http://localhost:{port}/docs")
     uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)

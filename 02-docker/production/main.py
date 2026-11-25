@@ -37,9 +37,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Agent (Docker Advanced)", version="2.0.0", lifespan=lifespan)
 
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+allowed_origins = [o.strip() for o in _raw_origins if o.strip() and o.strip() != "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=allowed_origins or ["http://localhost:3000"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

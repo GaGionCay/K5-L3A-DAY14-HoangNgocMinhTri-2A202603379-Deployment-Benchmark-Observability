@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # Stage 2: Runtime
 FROM python:3.11-slim AS runtime
 
-RUN groupadd -r agent && useradd -r -g agent -d /app agent
+RUN groupadd -r agent && useradd -r -g agent --create-home agent
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY --from=builder /root/.local /home/agent/.local
 COPY app/ ./app/
 COPY utils/ ./utils/
 
-RUN chown -R agent:agent /app
+RUN chown -R agent:agent /app /home/agent/.local
 
 USER agent
 
@@ -40,4 +40,4 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
 # ⚠️ Chỉ 1 worker/container: prometheus_client lưu metric trong memory của TỪNG process.
 #    Nhiều worker → mỗi lần scrape trúng 1 worker khác nhau → số liệu nhảy lung tung.
 #    Muốn scale → tăng số container (docker compose --scale agent=3), không tăng --workers.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --no-access-log --timeout-graceful-shutdown 10"]

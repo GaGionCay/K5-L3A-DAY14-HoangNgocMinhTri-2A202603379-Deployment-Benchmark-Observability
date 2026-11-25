@@ -1,22 +1,14 @@
 """
-BASIC — Health Check + Graceful Shutdown
+⚠️ EDUCATIONAL DEVELOPMENT EXAMPLE: Stateful Local Agent
 
-Hai tính năng tối thiểu cần có trước khi deploy:
-  1. GET /health  — liveness: "agent có còn sống không?"
-  2. GET /ready   — readiness: "agent có sẵn sàng nhận request chưa?"
-  3. Graceful shutdown: hoàn thành request hiện tại trước khi tắt
+DO NOT USE IN MULTI-INSTANCE PRODUCTION.
+This example stores state in process memory (_in_flight_requests, local flags)
+and runs as a single local instance.
 
-Chạy:
-    python app.py
-
-Test health check:
-    curl http://localhost:8000/health
-    curl http://localhost:8000/ready
-
-Simulate shutdown:
-    # Trong terminal khác
-    kill -SIGTERM <pid>
-    # Xem agent log graceful shutdown message
+In scalable production:
+- State must be stored externally (e.g. Redis session store).
+- Multi-instance load balancing requires horizontal stateless replicas.
+See 05-scaling-reliability/production/app.py for the Redis-backed stateless implementation.
 """
 import os
 import time
