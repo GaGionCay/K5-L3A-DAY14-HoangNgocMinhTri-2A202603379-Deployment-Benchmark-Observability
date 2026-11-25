@@ -53,8 +53,8 @@ jobs:
 
       - name: Validate Docker Compose Configurations
         env:
-          GRAFANA_ADMIN_PASSWORD: ci-test-grafana-password
-          AGENT_API_KEY: ci-test-agent-key
+          GRAFANA_ADMIN_PASSWORD: fsadasdkjahsjk2312
+          AGENT_API_KEY: jfkqljdklase12312
         run: |
           docker compose -f 06-lab-complete/docker-compose.yml config
           docker compose -f 06-lab-complete/benchmark-observability/production/docker-compose.yml config
