@@ -32,10 +32,10 @@ jobs:
         with:
           redis-version: 7-alpine
 
-      - name: Run production readiness static check
+      - name: Run production readiness full verification
         run: |
           cd 06-lab-complete
-          python check_production_ready.py --static-only
+          python check_production_ready.py --redis-url redis://127.0.0.1:6379/0
 
       - name: Run unit test suite
         run: |
@@ -44,11 +44,6 @@ jobs:
       - name: Run integration test suite
         run: |
           python tests/test_integration.py
-
-      - name: Run production readiness runtime checks
-        run: |
-          cd 06-lab-complete
-          python check_production_ready.py --skip-docker --redis-url redis://127.0.0.1:6379/0
 
       - name: Validate Prometheus Alert Rules with Promtool
         run: |
