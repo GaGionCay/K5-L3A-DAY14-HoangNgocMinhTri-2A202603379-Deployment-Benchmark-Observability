@@ -52,6 +52,9 @@ jobs:
           docker run --rm -v "$PWD:/p" --entrypoint promtool prom/prometheus:v3.16.0 test rules /p/alert_rules_test.yml
 
       - name: Validate Docker Compose Configurations
+        env:
+          GRAFANA_ADMIN_PASSWORD: ci-test-grafana-password
+          AGENT_API_KEY: ci-test-agent-key
         run: |
           docker compose -f 06-lab-complete/docker-compose.yml config
           docker compose -f 06-lab-complete/benchmark-observability/production/docker-compose.yml config
